@@ -51,7 +51,8 @@ app.post("/api/getPaymentMethods", async (req, res) => {
 });
 
 // Submitting a payment
-app.post("/api/initiatePayment", async (req, res) => {
+app.post("/api/initiatePayment", async (req, res) => {  
+  console.log('/api/initiatePayment');
   const currency = findCurrency(req.body.paymentMethod.type);
   // find shopper IP from request
   const shopperIP = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
@@ -78,6 +79,24 @@ app.post("/api/initiatePayment", async (req, res) => {
       billingAddress: req.body.billingAddress,
     });
 
+    console.log({
+      amount: { currency, value: 1000 }, // value is 10€ in minor units
+      reference: orderRef, // required
+      merchantAccount: process.env.MERCHANT_ACCOUNT, // required
+      channel: "Web", // required
+      additionalData: {
+        // required for 3ds2 native flow
+        allow3DS2: true,
+      },
+      origin: "http://localhost:8080", // required for 3ds2 native flow
+      browserInfo: req.body.browserInfo, // required for 3ds2
+      shopperIP, // required by some issuers for 3ds2
+      // we pass the orderRef in return URL to get paymentData during redirects
+      returnUrl: `http://localhost:8080/api/handleShopperRedirect?orderRef=${orderRef}`, // required for 3ds2 redirect flow
+      paymentMethod: req.body.paymentMethod,
+      billingAddress: req.body.billingAddress,
+    });
+
     const { action } = response;
 
     if (action) {
@@ -87,6 +106,7 @@ app.post("/api/initiatePayment", async (req, res) => {
         originStore[orderRef] = originalHost.origin;
       }
     }
+    console.log(response);
     res.json(response);
   } catch (err) {
     console.error(`Error: ${err.message}, error code: ${err.errorCode}`);
@@ -94,8 +114,9 @@ app.post("/api/initiatePayment", async (req, res) => {
   }
 });
 
-app.post("/api/submitAdditionalDetails", async (req, res) => {
-  // Create the payload for submitting payment details
+app.post("/api/submitAdditionalDetails", async (req, res) => {  
+  console.log('api/submitAdditionalDetails');
+
   const payload = {
     details: req.body.details,
     paymentData: req.body.paymentData,
@@ -106,9 +127,9 @@ app.post("/api/submitAdditionalDetails", async (req, res) => {
     // (for further action handling or presenting result to shopper)
     const response = await checkout.paymentsDetails(payload);
 
+    console.log(response);
     res.json(response);
   } catch (err) {
-    console.error(`Error: ${err.message}, error code: ${err.errorCode}`);
     res.status(err.statusCode).json(err.message);
   }
 });
